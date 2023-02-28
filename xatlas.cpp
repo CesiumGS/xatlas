@@ -34,8 +34,6 @@ MIT License
 Copyright (c) 2012 Brandon Pelfrey
 */
 
-#pragma GCC optimize("O0")
-
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -46,6 +44,8 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <optional>
+#include <string>
 #include <assert.h>
 #include <float.h> // FLT_MAX
 #include <iostream>
@@ -81,14 +81,19 @@ Copyright (c) 2012 Brandon Pelfrey
 #define XA_XSTR(x) XA_STR(x)
 
 #ifndef XA_ASSERT
-#define XA_ASSERT(exp)   if (!(exp)) { XA_PRINT_WARNING("\rASSERT: %s %s %d\n", XA_XSTR(exp), __FILE__, __LINE__); }
+#define XA_ASSERT(exp)   if (!(exp)) { XA_PRINT_WARNING("\r%s: ASSERT: %s %s %d\n", internal::getTID().c_str(), XA_XSTR(exp), __FILE__, __LINE__); }
 #endif
 
 #ifndef XA_DEBUG_ASSERT
 #define XA_DEBUG_ASSERT(exp) assert(exp)
 #endif
 
-#define BP_ASSERT(exp)   if (!(exp)) { printf("\r%s: ASSERT: %s %s %d\n", getTID().c_str(), XA_XSTR(exp), __FILE__, __LINE__); std::fflush(stdout); abort(); }
+#ifndef XA_ABORT
+#define XA_ABORT()			std::fflush(stdout); abort();
+#endif
+
+#define XA_EXPECT_OR_ABORT(exp)   				\
+if (!(exp)) { printf("\r%s: ASSERT: %s %s %d\nAborting.\n", internal::getTID().c_str(), XA_XSTR(exp), __FILE__, __LINE__); XA_ABORT(); }
 
 #ifndef XA_PRINT
 #define XA_PRINT(...) \
@@ -100,6 +105,14 @@ Copyright (c) 2012 Brandon Pelfrey
 #define XA_PRINT_WARNING(...) \
 	if (xatlas::internal::s_print) \
 		xatlas::internal::s_print(__VA_ARGS__);
+#endif
+
+#ifdef XA_DEBUG
+#ifndef XA_DEBUG_PRINT
+#define XA_DEBUG_PRINT(...) \
+	if (xatlas::internal::s_print) \
+		xatlas::internal::s_print(__VA_ARGS__);
+#endif
 #endif
 
 #define XA_ALLOC(tag, type) (type *)internal::Realloc(nullptr, sizeof(type), tag, __FILE__, __LINE__)
@@ -175,6 +188,13 @@ static ReallocFunc s_realloc = realloc;
 static FreeFunc s_free = free;
 static PrintFunc s_print = printf;
 static bool s_printVerbose = false;
+
+std::string getTID() {
+    auto myid = std::this_thread::get_id();
+    std::stringstream ss;
+    ss << myid;
+    return ss.str();
+}
 
 #if XA_PROFILE
 typedef uint64_t Duration;
@@ -3202,13 +3222,6 @@ public:
 	}
 };
 
-std::string getTID() {
-    auto myid = std::this_thread::get_id();
-    std::stringstream ss;
-    ss << myid;
-    return ss.str();
-}
-
 #if XA_MULTITHREADED
 class TaskScheduler
 {
@@ -3216,9 +3229,9 @@ class TaskScheduler
 	{
 		std::atomic<bool> free;
 		Array<Task> queue; // Items are never removed. queueHead is incremented to pop items.
-		uint32_t queueHead = 0;
+		uint64_t queueHead = 0;
 		Spinlock queueLock;
-		std::atomic<uint32_t> ref; // Increment when a task is enqueued, decrement when a task finishes.
+		std::atomic<uint64_t> ref; // Increment when a task is enqueued, decrement when a task finishes.
 		void *userData;
 	};
 
@@ -3227,7 +3240,7 @@ public:
 	{
 		m_threadIndex = 0;
 		m_workers.resize(std::thread::hardware_concurrency() <= 1 ? 1 : std::thread::hardware_concurrency() - 1);
-		for (uint32_t i = 0; i < m_workers.size(); i++) {
+		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			new (&m_workers[i]) Worker();
 			m_workers[i].wakeup = false;
 			m_workers[i].thread = XA_NEW_ARGS(MemTag::Default, std::thread, workerThread, this, &m_workers[i], i + 1);
@@ -3236,17 +3249,17 @@ public:
 
 	~TaskScheduler()
 	{
-		XA_PRINT("!!!! xatlas::~TaskScheduler %x", this);
+		XA_DEBUG_PRINT("xatlas::~TaskScheduler %x", this);
 		m_shutdown = true;
-		for (uint32_t i = 0; i < m_workers.size(); i++) {
+		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
-			XA_ASSERT(worker.thread);
+			XA_EXPECT_OR_ABORT(worker.thread);
 			worker.wakeup = true;
 			worker.cv.notify_one();
 		}
-		for (uint32_t i = 0; i < m_workers.size(); i++) {
+		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
-			XA_ASSERT(worker.thread);
+			XA_EXPECT_OR_ABORT(worker.thread);
 			if (worker.thread->joinable())
 				worker.thread->join();
 			worker.thread->~thread();
@@ -3255,18 +3268,18 @@ public:
 		}
 	}
 
-	uint32_t threadCount() const
+	uint64_t threadCount() const
 	{
 		return max(1u, std::thread::hardware_concurrency()); // Including the main thread.
 	}
 
 	uint64_t getNewTaskHandle() {
-		static std::atomic<uint64_t> s_counter = 1;
+		static std::atomic<uint64_t> s_counter {1};
 		return s_counter++;
 	}
 
 	// userData is passed to Task::func as groupUserData.
-	TaskGroupHandle createTaskGroup(void *userData = nullptr, uint32_t reserveSize = 0)
+	TaskGroupHandle createTaskGroup(void *userData = nullptr, uint64_t reserveSize = 0)
 	{
 		TaskGroup * group = new TaskGroup;
 
@@ -3286,14 +3299,14 @@ public:
 
 	void run(TaskGroupHandle handle, const Task &task)
 	{
-		BP_ASSERT(handle != 0);
+		XA_EXPECT_OR_ABORT(handle != 0);
 		TaskGroup &group = *m_groups[handle];
 		group.queueLock.lock();
 		group.queue.push_back(task);
 		group.queueLock.unlock();
 		group.ref++;
 		// Wake up a worker to run this task.
-		for (uint32_t i = 0; i < m_workers.size(); i++) {
+		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			m_workers[i].wakeup = true;
 			m_workers[i].cv.notify_one();
 		}
@@ -3301,31 +3314,31 @@ public:
 
 	void wait(TaskGroupHandle& handle)
 	{
-		if (handle == 0) {
-			BP_ASSERT(false);
-			return;
-		}
+		XA_EXPECT_OR_ABORT(handle != 0);
 		// Run tasks from the group queue until empty.
 		TaskGroup &group = *m_groups[handle];
 		for (;;) {
 			Task *task = nullptr;
 			group.queueLock.lock();
-			if (group.queueHead < group.queue.size())
+			if (group.queueHead < group.queue.size()) {
 				task = &group.queue[group.queueHead++];
+			}
 			group.queueLock.unlock();
-			if (!task)
+			if (!task) {
 				break;
+			}
 			task->func(group.userData, task->userData);
 			group.ref--;
 		}
 		// Even though the task queue is empty, workers can still be running tasks.
-		while (group.ref > 0)
+		while (group.ref > 0) {
 			std::this_thread::yield();
+		}
 		group.free = true;
 		handle = 0;
 	}
 
-	static uint32_t currentThreadIndex() { return m_threadIndex; }
+	static uint64_t currentThreadIndex() { return m_threadIndex; }
 
 private:
 
@@ -3340,36 +3353,34 @@ private:
 	sync_unordered_map<TaskGroupHandle, TaskGroup*> m_groups;
 	Array<Worker> m_workers;
 	std::atomic<bool> m_shutdown;
-	static thread_local uint32_t m_threadIndex;
+	static thread_local uint64_t m_threadIndex;
 
-	static void workerThread(TaskScheduler *scheduler, Worker *worker, uint32_t threadIndex)
+	static void workerThread(TaskScheduler *scheduler, Worker *worker, uint64_t threadIndex)
 	{
 		m_threadIndex = threadIndex;
 		std::unique_lock<std::mutex> lock(worker->mutex);
-		std::cout << getTID() << ":!!!! WorkerThread starting." << std::endl;
+		XA_DEBUG_PRINT("WorkerThread %u starting.", threadIndex);
 		try {
 			for (;;) {
 				if (scheduler->m_shutdown) {
-					std::cout << getTID() << ":!!!! WorkerThread shutting down1." << std::endl;
+					XA_DEBUG_PRINT("WorkerThread %u shutting down.", threadIndex);
 					return;
 				}
 
 				if (!worker->wakeup.load()) {
 					worker->cv.wait(lock, [=]{ return worker->wakeup.load(); });
 					worker->wakeup = false;
-				} else {
-					std::cout << getTID() << ":!!!! ++++" << std::endl;
 				}
 				for (;;) {
 					if (scheduler->m_shutdown) {
-						std::cout << getTID() << ":!!!! WorkerThread shutting down2." << std::endl;
+					XA_DEBUG_PRINT("WorkerThread %u shutting down.", threadIndex);
 						return;
 					}
 					// Look for a task in any of the groups and run it.
 					Task *task = nullptr;
 
 					auto opt_group = scheduler->m_groups.find_first_of(
-						[=, &task] (auto & group) -> bool {
+						[=, &task] (TaskGroup* & group) -> bool {
 							if (group->free || group->ref == 0) {
 								return false;
 							}
@@ -3394,22 +3405,19 @@ private:
 				}
 			}
 		} catch (const std::runtime_error & ex) {
-			std::cout << getTID() << ":!!!! std::runtime_error in XAtlas WorkerThread.\n" << ex.what() << "Aborting.\n";
-			std::fflush(stdout);
-			abort();
+			XA_PRINT_WARNING("std::runtime_error in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_ABORT();
 		} catch (const std::exception & ex) {
-			std::cout << getTID() << ":!!!! std::exception in XAtlas WorkerThread.\n" << ex.what() << "Aborting.\n";
-			std::fflush(stdout);
-			abort();
+			XA_PRINT_WARNING("std::exception in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_ABORT();
 		} catch (...) {
-			std::cout << getTID() << ":!!!! Unknown Exception in XAtlas WorkerThread. Aborting.\n";
-			std::fflush(stdout);
-			abort();
+			XA_PRINT_WARNING("Unknown Exception in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_ABORT();
 		}
 	}
 };
 
-thread_local uint32_t TaskScheduler::m_threadIndex;
+thread_local uint64_t TaskScheduler::m_threadIndex;
 #else
 class TaskScheduler
 {
