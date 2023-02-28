@@ -11,7 +11,6 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - gcc-11
-            - g++-11
       env:
         - CC=gcc
         - CXX=g++
