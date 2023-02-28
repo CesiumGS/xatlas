@@ -33,10 +33,12 @@ jobs:
         platform: [x64]
     steps:
     - uses: actions/checkout@v2
-    - name: Run premake
+    - name: Install and run premake
       shell: powershell
       run: |
-        .\bin\premake5.exe vs2019
+        wget https://github.com/premake/premake-core/releases/download/v5.0.0-beta2/premake-5.0.0-beta2-windows.zip -O premake.zip
+        Expand-Archive .\premake.zip
+        ./premake/premake5.exe vs2019
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1
     - name: Build
