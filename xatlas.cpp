@@ -106,11 +106,13 @@ if (!(exp)) { printf("\r%s: ASSERT: %s %s %d\nAborting.\n", internal::getTID().c
 		xatlas::internal::s_print(__VA_ARGS__);
 #endif
 
-#if XA_DEBUG==1
 #ifndef XA_DEBUG_PRINT
+#if XA_DEBUG==1
 #define XA_DEBUG_PRINT(...) \
 	if (xatlas::internal::s_print) \
 		xatlas::internal::s_print(__VA_ARGS__);
+#else
+#define XA_DEBUG_PRINT(...)
 #endif
 #endif
 
