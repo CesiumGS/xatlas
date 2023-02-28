@@ -3211,7 +3211,7 @@ public:
 		return iter->second;
 	}
 
-	std::optional<V> find_first_of(std::function<bool (V)> lambda) {
+	std::optional<V> find_first_of(auto lambda) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
 		for (auto & kv : m_data) {
