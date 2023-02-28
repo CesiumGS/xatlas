@@ -38,17 +38,18 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <cstdint>
 #include <cstdio>
 #include <exception>
+#include <functional>
+#include <iostream>
 #include <mutex>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
-#include <thread>
-#include <optional>
 #include <string>
+#include <thread>
+#include <unordered_map>
+
 #include <assert.h>
 #include <float.h> // FLT_MAX
-#include <iostream>
-#include <unordered_map>
 #include <limits.h>
 #include <math.h>
 #define __STDC_LIMIT_MACROS
@@ -3210,7 +3211,7 @@ public:
 		return iter->second;
 	}
 
-	std::optional<V> find_first_of(auto lambda) {
+	std::optional<V> find_first_of(std::function<bool (V)> lambda) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
 		for (auto & kv : m_data) {
