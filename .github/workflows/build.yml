@@ -30,7 +30,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        platform: [Win32, x64]
+        platform: [x64]
     steps:
     - uses: actions/checkout@v2
     - name: Run premake

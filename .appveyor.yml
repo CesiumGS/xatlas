@@ -7,7 +7,6 @@ environment:
     - ACTION: vs2017
 
 platform:
-  - Win32
   - x64
     
 configuration:
