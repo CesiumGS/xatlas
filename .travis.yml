@@ -7,8 +7,7 @@ matrix:
       compiler: gcc-11
       addons:
         apt:
-          sources:
-            - ubuntu-toolchain-r-test
+          update: true
           packages:
             - gcc-11
             - g++-11
