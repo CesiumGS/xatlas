@@ -106,7 +106,7 @@ if (!(exp)) { printf("\r%s: ASSERT: %s %s %d\nAborting.\n", internal::getTID().c
 		xatlas::internal::s_print(__VA_ARGS__);
 #endif
 
-#ifdef XA_DEBUG
+#if XA_DEBUG==1
 #ifndef XA_DEBUG_PRINT
 #define XA_DEBUG_PRINT(...) \
 	if (xatlas::internal::s_print) \
@@ -3358,11 +3358,11 @@ private:
 	{
 		m_threadIndex = threadIndex;
 		std::unique_lock<std::mutex> lock(worker->mutex);
-		XA_DEBUG_PRINT("WorkerThread %u starting.", threadIndex);
+		XA_DEBUG_PRINT("WorkerThread %u starting.\n", threadIndex);
 		try {
 			for (;;) {
 				if (scheduler->m_shutdown) {
-					XA_DEBUG_PRINT("WorkerThread %u shutting down.", threadIndex);
+					XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
 					return;
 				}
 
@@ -3372,7 +3372,7 @@ private:
 				}
 				for (;;) {
 					if (scheduler->m_shutdown) {
-					XA_DEBUG_PRINT("WorkerThread %u shutting down.", threadIndex);
+					XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
 						return;
 					}
 					// Look for a task in any of the groups and run it.
@@ -3404,13 +3404,13 @@ private:
 				}
 			}
 		} catch (const std::runtime_error & ex) {
-			XA_PRINT_WARNING("std::runtime_error in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_PRINT_WARNING("std::runtime_error in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
 			XA_ABORT();
 		} catch (const std::exception & ex) {
-			XA_PRINT_WARNING("std::exception in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_PRINT_WARNING("std::exception in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
 			XA_ABORT();
 		} catch (...) {
-			XA_PRINT_WARNING("Unknown Exception in XAtlas WorkerThread %u. Aborting.", threadIndex);
+			XA_PRINT_WARNING("Unknown Exception in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
 			XA_ABORT();
 		}
 	}

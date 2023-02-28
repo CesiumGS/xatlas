@@ -13,8 +13,8 @@ matrix:
             - gcc-11
             - g++-11
       env:
-        - CC=gcc-11
-        - CXX=g++-11
+        - CC=gcc
+        - CXX=g++
         - PREMAKE_CC=gcc
     - os: linux
       compiler: clang
