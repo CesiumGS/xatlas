@@ -33,7 +33,6 @@ https://github.com/brandonpelfrey/Fast-BVH
 MIT License
 Copyright (c) 2012 Brandon Pelfrey
 */
-
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -81,7 +80,7 @@ Copyright (c) 2012 Brandon Pelfrey
 #define XA_XSTR(x) XA_STR(x)
 
 #ifndef XA_ASSERT
-#define XA_ASSERT(exp)   if (!(exp)) { XA_PRINT_WARNING("\r%s: ASSERT: %s %s %d\n", internal::getTID().c_str(), XA_XSTR(exp), __FILE__, __LINE__); }
+#define XA_ASSERT(exp) if (!(exp)) { XA_PRINT_WARNING("\r%s: ASSERT: %s %s %d\n", internal::getTID().c_str(), XA_XSTR(exp), __FILE__, __LINE__); }
 #endif
 
 #ifndef XA_DEBUG_ASSERT
@@ -89,7 +88,7 @@ Copyright (c) 2012 Brandon Pelfrey
 #endif
 
 #ifndef XA_ABORT
-#define XA_ABORT()			std::fflush(stdout); abort();
+#define XA_ABORT() std::fflush(stdout); abort();
 #endif
 
 #define XA_EXPECT_OR_ABORT(exp)   				\
@@ -3181,7 +3180,7 @@ private:
 
 public:
 	sync_unordered_map()
-	  : m_data(256) {}
+	  : m_data(4'096) {}
 
 	void insert(const K& k, const V& v) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
@@ -9841,8 +9840,6 @@ void Generate(Atlas *atlas, ChartOptions chartOptions, PackOptions packOptions)
 
 void SetProgressCallback(Atlas *atlas, ProgressFunc progressFunc, void *progressUserData)
 {
-	abort();
-
 	if (!atlas) {
 		XA_PRINT_WARNING("SetProgressCallback: atlas is null.\n");
 		return;
