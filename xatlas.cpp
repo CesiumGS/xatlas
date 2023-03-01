@@ -892,7 +892,7 @@ struct Extents2
 	Vector2 min, max;
 
 	Extents2() {}
-    
+	
 	Extents2(Vector2 p1, Vector2 p2)
 	{
 		min = xatlas::internal::min(p1, p2);
@@ -2774,7 +2774,7 @@ public:
 		const Vector2 &t2 = m_texcoords[m_indices[face * 3 + 2]];
 		return triangleArea(t0, t1, t2);
 	}
-    
+
 	// @@ This is not exactly accurate, we should compare the texture coordinates...
 	bool isSeam(uint32_t edge) const
 	{
@@ -2880,7 +2880,7 @@ public:
 		uint32_t relativeEdge() const { return m_relativeEdge; }
 		uint32_t face() const { return m_face; }
 		uint32_t oppositeEdge() const { return m_mesh->m_oppositeEdges[m_edge]; }
-        
+
 		uint32_t oppositeFace() const
 		{
 			const uint32_t oedge = m_mesh->m_oppositeEdges[m_edge];
@@ -5178,7 +5178,7 @@ struct PlanarCharts
 	PlanarCharts(AtlasData &data) : m_data(data), m_nextRegionFace(MemTag::SegmentAtlasPlanarRegions), m_faceToRegionId(MemTag::SegmentAtlasPlanarRegions) {}
 	const Basis &chartBasis(uint32_t chartIndex) const { return m_chartBasis[chartIndex]; }
 	uint32_t chartCount() const { return m_charts.size(); }
-    
+
 	ConstArrayView<uint32_t> chartFaces(uint32_t chartIndex) const
 	{
 		const Chart &chart = m_charts[chartIndex];
