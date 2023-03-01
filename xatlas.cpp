@@ -3214,9 +3214,9 @@ public:
 	std::optional<V> find_first_of(auto lambda) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
-		for (auto & kv : m_data) {
-			if (lambda(kv.second)) {
-				return kv.second;
+		for (auto & [key, val] : m_data) {
+			if (lambda(val)) {
+				return val;
 			}
 		}
 
@@ -3407,10 +3407,10 @@ private:
 				}
 			}
 		} catch (const std::runtime_error & ex) {
-			XA_PRINT_WARNING("std::runtime_error in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
+			XA_PRINT_WARNING("std::runtime_error in XAtlas WorkerThread %u.\n%s.\nAborting.\n", threadIndex, ex.what());
 			XA_ABORT();
 		} catch (const std::exception & ex) {
-			XA_PRINT_WARNING("std::exception in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
+			XA_PRINT_WARNING("std::exception in XAtlas WorkerThread %u.\n%s.\nAborting.\n", threadIndex, ex.what());
 			XA_ABORT();
 		} catch (...) {
 			XA_PRINT_WARNING("Unknown Exception in XAtlas WorkerThread %u.\nAborting.\n", threadIndex);
