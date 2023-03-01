@@ -3185,38 +3185,34 @@ public:
 	sync_unordered_map()
 	  : m_data(4'096) {}
 
-	void insert(const K& k, const V& v) {
+	template<typename... Args >
+	void emplace(K k, Args&&... args) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
-		m_data.insert({k ,v});
+		auto [itr, succ] = m_data.try_emplace(k, std::forward<Args>(args)...);
+		XA_EXPECT_OR_ABORT(succ);
 	}
 
-	V& operator[] (const K& k) {
+	void erase(const K& k) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
-
-		auto iter = m_data.find(k);
-		if (iter == m_data.end()) {
-			m_data.insert({k, V(0)});
-		}
-		return m_data.find(k)->second;
+		m_data.erase(k);
 	}
 
-	std::optional<const V&> get(const K& k) const {
+	V* operator[] (const K& k) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
 		auto iter = m_data.find(k);
 		if (iter == m_data.end()) {
-			return std::nullopt;
+			throw std::runtime_error("Xatlas: TasHandle not found in syncmap.");
 		}
-
-		return iter->second;
+		return &m_data.find(k)->second;
 	}
 
-	std::optional<V> find_first_of(auto lambda) {
+	std::optional<V*> find_first_of(auto lambda) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
 		for (auto & [key, val] : m_data) {
 			if (lambda(val)) {
-				return val;
+				return &val;
 			}
 		}
 
@@ -3235,6 +3231,16 @@ class TaskScheduler
 		Spinlock queueLock;
 		std::atomic<uint64_t> ref; // Increment when a task is enqueued, decrement when a task finishes.
 		void *userData;
+
+		TaskGroup(void *userdata = nullptr, uint64_t desiredSize = 0)
+		: free(false)
+		, ref(0)
+		, userData(userdata)
+		{
+			queue.reserve(desiredSize);
+		}
+
+		TaskGroup(const TaskGroup&) = default;
 	};
 
 public:
@@ -3283,19 +3289,10 @@ public:
 	// userData is passed to Task::func as groupUserData.
 	TaskGroupHandle createTaskGroup(void *userData = nullptr, uint64_t reserveSize = 0)
 	{
-		TaskGroup * group = new TaskGroup;
-
-		group->queueLock.lock();
-		group->queueHead = 0;
-		group->queue.clear();
-		group->queue.reserve(reserveSize);
-		group->queueLock.unlock();
-		group->userData = userData;
-		group->ref = 0;
-
 		TaskGroupHandle handle = getNewTaskHandle();
 
-		m_groups.insert(handle, group);
+		m_groups.emplace(handle, userData, reserveSize);
+
 		return handle;
 	}
 
@@ -3338,6 +3335,8 @@ public:
 		}
 		group.free = true;
 		handle = 0;
+
+		m_groups.erase(handle);
 	}
 
 	static uint64_t currentThreadIndex() { return m_threadIndex; }
@@ -3352,7 +3351,7 @@ private:
 		std::atomic<bool> wakeup;
 	};
 
-	sync_unordered_map<TaskGroupHandle, TaskGroup*> m_groups;
+	sync_unordered_map<TaskGroupHandle, TaskGroup> m_groups;
 	Array<Worker> m_workers;
 	std::atomic<bool> m_shutdown;
 	static thread_local uint64_t m_threadIndex;
@@ -3382,17 +3381,17 @@ private:
 					Task *task = nullptr;
 
 					auto opt_group = scheduler->m_groups.find_first_of(
-						[=, &task] (TaskGroup* & group) -> bool {
-							if (group->free || group->ref == 0) {
+						[=, &task] (TaskGroup & group) -> bool {
+							if (group.free || group.ref == 0) {
 								return false;
 							}
-							group->queueLock.lock();
-							if (group->queueHead < group->queue.size()) {
-								task = &group->queue[group->queueHead++];
-								group->queueLock.unlock();
+							group.queueLock.lock();
+							if (group.queueHead < group.queue.size()) {
+								task = &group.queue[group.queueHead++];
+								group.queueLock.unlock();
 								return true;
 							}
-							group->queueLock.unlock();
+							group.queueLock.unlock();
 							return false;
 						}
 					);
@@ -3401,7 +3400,7 @@ private:
 						break;
 					}
 
-					TaskGroup * group = opt_group.value();
+					TaskGroup* group = opt_group.value();
 					task->func(group->userData, task->userData);
 					group->ref--;
 				}
