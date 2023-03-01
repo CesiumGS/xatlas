@@ -76,7 +76,7 @@ solution "xatlas"
 		defines { "_DEBUG" }
 		optimize "Debug"
 		symbols "On"
-	filter "configurations:Release"	
+	filter "configurations:Release"
 		defines "NDEBUG"
 		optimize "Full"
 	filter {}
