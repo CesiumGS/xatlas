@@ -38,10 +38,10 @@ jobs:
       run: |
         wget https://github.com/premake/premake-core/releases/download/v5.0.0-beta2/premake-5.0.0-beta2-windows.zip -O premake.zip
         Expand-Archive .\premake.zip
-        ./premake/premake5.exe vs2019
+        ./premake/premake5.exe vs2022
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1
     - name: Build
       shell: cmd
       run: |
-        msbuild build\vs2019\xatlas.sln /p:Configuration=Release /p:Platform="${{matrix.platform}}" /verbosity:minimal
+        msbuild build\vs2022\xatlas.sln /p:Configuration=Release /p:Platform="${{matrix.platform}}" /verbosity:minimal
