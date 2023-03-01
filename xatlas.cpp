@@ -89,7 +89,7 @@ Copyright (c) 2012 Brandon Pelfrey
 #endif
 
 #ifndef XA_ABORT
-#define XA_ABORT() std::fflush(stdout); abort();
+#define XA_ABORT() std::fflush(stdout); std::fflush(stderr); abort();
 #endif
 
 #define XA_EXPECT_OR_ABORT(exp)   				\
