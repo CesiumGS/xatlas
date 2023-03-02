@@ -47,8 +47,6 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <string>
 #include <thread>
 #include <unordered_map>
-#include <chrono>
-using namespace std::chrono_literals;
 
 #include <assert.h>
 #include <float.h> // FLT_MAX
@@ -3277,8 +3275,7 @@ public:
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
 			XA_EXPECT_OR_ABORT(worker.thread);
-			worker.wakeup = true;
-			worker.cv.notify_one();
+			worker.wakeMeUp();
 		}
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
@@ -3321,8 +3318,7 @@ public:
 		group.ref++;
 		// Wake up a worker to run this task.
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
-			m_workers[i].wakeup = true;
-			m_workers[i].cv.notify_one();
+			m_workers[i].wakeMeUp();
 		}
 	}
 
@@ -3364,6 +3360,14 @@ private:
 		std::mutex mutex;
 		std::condition_variable cv;
 		std::atomic<bool> wakeup;
+
+		void wakeMeUp() {
+			{
+				std::lock_guard<std::mutex> lk(mutex);
+				wakeup.store(true);
+			}
+			cv.notify_one();
+		}
 	};
 
 	sync_unordered_map<TaskGroupHandle, TaskGroup> m_groups;
@@ -3383,14 +3387,13 @@ private:
 					return;
 				}
 
-				while (!worker->wakeup.load()) {
-					worker->cv.wait_for(lock, 100ms, [=]{ return worker->wakeup.load(); });
+				if (!worker->wakeup.load()) {
+					worker->cv.wait(lock, [=]{ return worker->wakeup.load(); });
+					worker->wakeup = false;
 				}
-				worker->wakeup.store(false);
-
 				for (;;) {
 					if (scheduler->m_shutdown) {
-					XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
+						XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
 						return;
 					}
 					// Look for a task in any of the groups and run it.
