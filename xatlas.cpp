@@ -3197,14 +3197,14 @@ public:
 		m_data.erase(k);
 	}
 
-	V* operator[] (const K& k) {
+	V& get (const K& k) {
 		std::lock_guard<std::mutex> guard(mx_mutex);
 
 		auto iter = m_data.find(k);
 		if (iter == m_data.end()) {
 			throw std::runtime_error("Xatlas: TasHandle not found in syncmap.");
 		}
-		return &m_data.find(k)->second;
+		return m_data.find(k)->second;
 	}
 
 	std::optional<V*> find_first_of(auto lambda) {
@@ -3299,7 +3299,7 @@ public:
 	void run(TaskGroupHandle handle, const Task &task)
 	{
 		XA_EXPECT_OR_ABORT(handle != 0);
-		TaskGroup &group = *m_groups[handle];
+		TaskGroup &group = m_groups.get(handle);
 		group.queueLock.lock();
 		group.queue.push_back(task);
 		group.queueLock.unlock();
@@ -3315,7 +3315,7 @@ public:
 	{
 		XA_EXPECT_OR_ABORT(handle != 0);
 		// Run tasks from the group queue until empty.
-		TaskGroup &group = *m_groups[handle];
+		TaskGroup &group = m_groups.get(handle);
 		for (;;) {
 			Task *task = nullptr;
 			group.queueLock.lock();
