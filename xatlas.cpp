@@ -47,6 +47,8 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <chrono>
+using namespace std::chrono_literals;
 
 #include <assert.h>
 #include <float.h> // FLT_MAX
@@ -3381,10 +3383,11 @@ private:
 					return;
 				}
 
-				if (!worker->wakeup.load()) {
-					worker->cv.wait(lock, [=]{ return worker->wakeup.load(); });
-					worker->wakeup = false;
+				while (!worker->wakeup.load()) {
+					worker->cv.wait_for(lock, 100ms, [=]{ return worker->wakeup.load(); });
 				}
+				worker->wakeup.store(false);
+
 				for (;;) {
 					if (scheduler->m_shutdown) {
 					XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
