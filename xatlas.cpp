@@ -47,6 +47,8 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <chrono>
+using namespace std::chrono_literals;
 
 #include <assert.h>
 #include <float.h> // FLT_MAX
@@ -3388,7 +3390,7 @@ private:
 				}
 
 				if (!worker->wakeup.load()) {
-					worker->cv.wait(lock, [=]{ return worker->wakeup.load(); });
+					worker->cv.wait_for(lock, 100ms, [=]{ return worker->wakeup.load(); });
 					worker->wakeup = false;
 				}
 				for (;;) {
