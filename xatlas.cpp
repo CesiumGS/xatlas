@@ -3277,7 +3277,8 @@ public:
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
 			XA_EXPECT_OR_ABORT(worker.thread);
-			worker.wakeMeUp();
+			worker.wakeup = true;
+			worker.cv.notify_one();
 		}
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
 			Worker &worker = m_workers[i];
@@ -3320,7 +3321,8 @@ public:
 		group.ref++;
 		// Wake up a worker to run this task.
 		for (uint64_t i = 0; i < m_workers.size(); i++) {
-			m_workers[i].wakeMeUp();
+			m_workers[i].wakeup = true;
+			m_workers[i].cv.notify_one();
 		}
 	}
 
@@ -3362,14 +3364,6 @@ private:
 		std::mutex mutex;
 		std::condition_variable cv;
 		std::atomic<bool> wakeup;
-
-		void wakeMeUp() {
-			{
-				std::lock_guard<std::mutex> lk(mutex);
-				wakeup.store(true);
-			}
-			cv.notify_one();
-		}
 	};
 
 	sync_unordered_map<TaskGroupHandle, TaskGroup> m_groups;
@@ -3396,7 +3390,7 @@ private:
 
 				for (;;) {
 					if (scheduler->m_shutdown) {
-						XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
+					XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
 						return;
 					}
 					// Look for a task in any of the groups and run it.
