@@ -3389,10 +3389,11 @@ private:
 					return;
 				}
 
-				if (!worker->wakeup.load()) {
+				while (!worker->wakeup.load()) {
 					worker->cv.wait_for(lock, 100ms, [=]{ return worker->wakeup.load(); });
-					worker->wakeup = false;
 				}
+				worker->wakeup.store(false);
+
 				for (;;) {
 					if (scheduler->m_shutdown) {
 						XA_DEBUG_PRINT("WorkerThread %u shutting down.\n", threadIndex);
