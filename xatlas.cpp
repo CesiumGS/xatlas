@@ -3214,7 +3214,7 @@ public:
 
 		auto iter = m_data.find(k);
 		if (iter == m_data.end()) {
-			throw std::runtime_error("Xatlas: TasHandle not found in syncmap.");
+			throw std::runtime_error("Xatlas: TaskHandle not found in syncmap.");
 		}
 		return m_data.find(k)->second;
 	}
