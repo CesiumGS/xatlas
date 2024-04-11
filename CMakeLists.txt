@@ -9,6 +9,13 @@ set(XATLAS_HEADERS "xatlas.h")
 
 add_library(xatlas ${XATLAS_SRC} ${XATLAS_HEADERS})
 
+# cxx version
+set_target_properties(xatlas PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+
 target_include_directories(
     xatlas
     PUBLIC
