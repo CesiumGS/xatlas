@@ -21,6 +21,7 @@
 #include <atomic>
 #include <thread>
 #include <condition_variable>
+#include <initializer_list>
 #include <stdint.h>
 #include <functional>
 #include <assert.h>
